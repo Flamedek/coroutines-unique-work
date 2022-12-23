@@ -1,4 +1,4 @@
-package com.rsdev.me.uniquework
+package com.rsdev.me.coroutinetasks
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.*
@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
-internal class LaunchUniqueTest {
+internal class LaunchTaskTest {
 
     private val TAG = "test"
 
@@ -14,20 +14,20 @@ internal class LaunchUniqueTest {
     fun cancelWithJob() = runTest {
         var done1 = false
         var done2 = false
-        withContext(UniqueWorkContainer()) {
-            launchUnique(UniqueWork(TAG)) {
+        withContext(TaskContainer()) {
+            launchTask(Task(TAG)) {
                 try {
                     delay(50L)
                     fail("Job should not complete")
                 } catch (e: CancellationException) {
-                    assertTrue(e is UniqueWorkCancellationException && e.isRestarted) {
-                        "Should cancel with UniqueWorkCancellationException marked as relaunched"
+                    assertTrue(e is TaskCancellationException && e.isRestarted) {
+                        "Should cancel with UniqueWorkCancellationException marked as restarted"
                     }
                 }
                 done1 = true
             }
             delay(10L)
-            launchUnique(UniqueWork(TAG)) {
+            launchTask(Task(TAG)) {
                 delay(10L)
                 done2 = true
             }
@@ -38,40 +38,38 @@ internal class LaunchUniqueTest {
     @Test
     fun cancelManually() = runTest {
         var done = false
-        withContext(UniqueWorkContainer()) {
-            launchUnique(UniqueWork(TAG)) {
+        withContext(TaskContainer()) {
+            launchTask(Task(TAG)) {
                 try {
                     delay(50L)
                     fail("Job should not complete")
                 } catch (e: CancellationException) {
-                    assertTrue(e is UniqueWorkCancellationException && !e.isRestarted) {
+                    assertTrue(e is TaskCancellationException && !e.isRestarted) {
                         "Should cancel with UniqueWorkCancellationException marked as manual"
                     }
                 }
                 done = true
             }
-            delay(25L)
-            runCurrent()
-            cancelUnique(TAG)
+            delay(10L)
+            cancelTask(TAG)
         }
-        advanceUntilIdle()
         assertTrue(done) { "Test not done" }
     }
 
     @Test
     fun notCancelledByChildren() = runTest {
         var done = false
-        launchUnique(UniqueWork(TAG)) {
+        launchTask(Task(TAG)) {
             try {
                 coroutineScope<Unit> {
-                    launch { delay(25L) }
-                    launch(UniqueWork(TAG)) { delay(25L) }
+                    launch { delay(10L) }
+                    launch(Task(TAG)) { delay(10L) }
                     awaitAll(
-                        async { delay(25L) },
-                        async(UniqueWork(TAG)) { delay(25L) }
+                        async { delay(10L) },
+                        async(Task(TAG)) { delay(10L) }
                     )
-                    launchUnique(UniqueWork(TAG)) {
-                        delay(25L)
+                    launchTask(Task(TAG)) {
+                        delay(10L)
                     }
                 }
                 done = true

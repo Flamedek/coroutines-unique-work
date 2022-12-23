@@ -10,5 +10,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "CoroutinesUniqueWork"
+rootProject.name = "CoroutineTasks"
 include ':library'

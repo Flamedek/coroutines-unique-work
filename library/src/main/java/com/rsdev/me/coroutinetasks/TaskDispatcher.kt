@@ -1,33 +1,31 @@
-package com.rsdev.me.uniquework
+package com.rsdev.me.coroutinetasks
 
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.*
 import java.lang.Runnable
 
-
 /**
- * Wraps a given [CoroutineDispatcher] to additionally handle [UniqueWork] tags
- * whenever some work is dispatched.
+ * Wraps a given [CoroutineDispatcher] to additionally handle [Task] tags whenever some work is dispatched.
  */
-internal class UniqueWorkDispatcher(
-    val delegate: CoroutineDispatcher,
-    val container: UniqueWorkContainer,
+internal class TaskDispatcher(
+        val delegate: CoroutineDispatcher,
+        val container: TaskContainer,
 ) : CoroutineDispatcher() {
 
     override fun isDispatchNeeded(context: CoroutineContext) = delegate.isDispatchNeeded(context)
 
     override fun dispatch(context: CoroutineContext, block: Runnable) {
-        val workElement = context[UniqueWork]
-        if (workElement != null) {
-            val currentWork = container[workElement]
+        val taskElement = context[Task]
+        if (taskElement != null) {
+            val currentWork = container[taskElement]
 
             if (currentWork == null || currentWork.shouldCancelFor(context)) {
-                currentWork?.cancel(UniqueWorkCancellationException(workElement, isRestarted = true))
+                currentWork?.cancel(TaskCancellationException(taskElement, isRestarted = true))
 
-                container[workElement] = UniqueWorkData(workElement, context.job)
+                container[taskElement] = TaskData(taskElement, context.job)
                 context.job.invokeOnCompletion { reason ->
-                    if (reason !is UniqueWorkCancellationException) {
-                        container.remove(workElement)
+                    if (reason !is TaskCancellationException) {
+                        container.remove(taskElement)
                     }
                 }
             } else {
@@ -41,19 +39,18 @@ internal class UniqueWorkDispatcher(
     }
 }
 
-internal class UniqueWorkData(val tag: UniqueWork, val job: Job) {
+internal class TaskData(val task: Task, val job: Job) {
 
     /**
      * Check if this work should be cancelled for the given block.
      * @return true if the block runs in a different job hierarchy than this work.
      */
     fun shouldCancelFor(block: CoroutineContext): Boolean {
-        val parentJob = job ?: return false
         val blockJob = block[Job] ?: return false
-        return parentJob != blockJob && !parentJob.isIndirectParentOf(blockJob)
+        return job != blockJob && !job.isIndirectParentOf(blockJob)
     }
 
-    fun cancel(cause: UniqueWorkCancellationException) {
+    fun cancel(cause: TaskCancellationException) {
         job.cancel(cause)
     }
 
